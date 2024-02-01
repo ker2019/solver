@@ -87,17 +87,16 @@ for ni in nodes_interior:
 		M[ni - 1, nj - 1] = prod(ni, nj)
 	M[ni - 1, ni - 1] = prod(ni, ni)
 for ntag in nodes_on_outer_surf:
-	M[ntag - 1, ntag - 1] += 1
+	M[ntag - 1, ntag - 1] = 1
 
 b = np.zeros(num_of_nodes)
 for i in range(num_of_nodes):
-	if i + 1 in nodes_on_inner_surf:
-		b[i] = 0
 	if i + 1 in nodes_on_outer_surf:
 		b[i] = 1
 
 print('Solving linear system...')
-def solve_for_spot(x):
+def solve_for_spot(theta):
+	x = R*np.cos(theta)
 	N = M.copy()
 	for ni in nodes_on_inner_surf:
 		if coords_of_node[0, ni] < x:
@@ -107,32 +106,38 @@ def solve_for_spot(x):
 		else:
 			N[ni - 1, ni - 1] = 1
 	N_ = spr.csr_matrix(N)
-	sol = sprlg.spsolve(N_, b)
-	return sol
+	sol, info = sprlg.bicg(N_, b, x0=np.ones(num_of_nodes))
+	if info != 0:
+		print('Solving error: ', info)
+	return np.array(sol)
 
-sol = solve_for_spot(-2)
-
-print('Preparing to view...')
-v1 = gmsh.view.add('solution')
-gmsh.view.addHomogeneousModelData(v1, 0, model_name, 'NodeData', range(1, num_of_nodes + 1), sol)
-#gmsh.view.addHomogeneousModelData(v1_grad, 0, model_name, 'ElementNodeData', elems3D, sol_grad.flatten(), numComponents=3)
-gmsh.view.write(v1, model_name + "-solution.msh")
-
-def evaluate_flux(vtag):
-	local_coords2D, weights2D = mesh.getIntegrationPoints(element2D_type, 'Gauss' + str(element_order - 1))
-	J, D, p = mesh.getJacobians(element2D_type, local_coords2D, inner_surf)
-	coords_num = len(local_coords2D)//3
-	elems_num = len(D)//coords_num
-	J = np.reshape(J, (elems_num, coords_num, 3, 3)).swapaxes(2, 3)
-	D = np.reshape(D, (elems_num, coords_num))
-	p = np.reshape(p, (elems_num, coords_num, 3))
+local_coords2D, weights2D = mesh.getIntegrationPoints(element2D_type, 'Gauss' + str(element_order - 1))
+J, D, p = mesh.getJacobians(element2D_type, local_coords2D, inner_surf)
+coords_num = len(local_coords2D)//3
+elems_num = len(D)//coords_num
+J = np.reshape(J, (elems_num, coords_num, 3, 3)).swapaxes(2, 3)
+D = np.reshape(D, (elems_num, coords_num))
+p = np.reshape(p, (elems_num, coords_num, 3))
+def evaluate_flux(vtag, step):
 	flux = 0
 	for e in range(elems_num):
 		for i in range(coords_num):
 			g, _ = gmsh.view.probe(vtag, p[e, i, 0], p[e, i, 1], p[e, i, 2],\
-				distanceMax=-1, gradient=True, dim=3)
+				distanceMax=-1, gradient=True, dim=3, step=step)
 			flux += weights2D[i] * np.dot(g, J[e, i] @ [0, 0, 1]) * D[e, i]
 	return flux
 
-print(evaluate_flux(v1), 4*np.pi*R/(1 - R/L))
+
+v1 = gmsh.view.add('solution')
+n = 30
+theta = np.linspace(0, np.pi, n)
+F = np.empty(n)
+for i in range(n):
+	print('%i/%i' % (i, n))
+	sol = solve_for_spot(theta[i])
+	gmsh.view.addHomogeneousModelData(v1, i, model_name, 'NodeData', range(1, num_of_nodes + 1), sol)
+	F[i] = evaluate_flux(v1, i)
+np.savez('fluxes.npz', theta=theta, F=F)
+
+gmsh.view.write(v1, model_name + '-solution.msh')
 gmsh.finalize()

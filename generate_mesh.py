@@ -19,7 +19,7 @@ gmsh.model.addPhysicalGroup(2, [2], name='outer surface')
 
 
 gmsh.option.setNumber('Mesh.SecondOrderLinear', 1)
-gmsh.model.mesh.setSizeCallback(lambda dim, tag, x, y, z, lc: np.clip(0.1*(x**2 + y**2 + z**2), 0, 1))
+gmsh.model.mesh.setSizeCallback(lambda dim, tag, x, y, z, lc: np.clip(mesh_micro_size*(x**2 + y**2 + z**2), 0, mesh_macro_size))
 gmsh.model.mesh.generate(3)
 gmsh.model.mesh.removeDuplicateNodes()
 gmsh.model.mesh.renumberNodes()

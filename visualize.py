@@ -24,6 +24,7 @@ gmsh.plugin.setNumber('CutSphere', 'View', 0)
 gmsh.plugin.run('CutSphere')
 sphere_cut = max(gmsh.view.getTags())
 
+"""
 # Error
 error = gmsh.view.add('error')
 _, tags, sol, _, _ = gmsh.view.getHomogeneousModelData(solution, 0)
@@ -37,9 +38,10 @@ gmsh.plugin.setNumber('CutPlane', 'C', 1)
 gmsh.plugin.setNumber('CutPlane', 'D', 0)
 gmsh.plugin.run('CutPlane')
 error_plane_cut = max(gmsh.view.getTags())
+"""
 
 gmsh.option.setNumber('View[%i].Visible' % gmsh.view.getIndex(solution), 0)
-gmsh.option.setNumber('View[%i].Visible' % gmsh.view.getIndex(error), 0)
+#gmsh.option.setNumber('View[%i].Visible' % gmsh.view.getIndex(error), 0)
 
 gmsh.option.setNumber('View.VectorType', 4)
 gmsh.option.setNumber('Mesh.Tetrahedra', 0)
