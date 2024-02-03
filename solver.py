@@ -86,18 +86,18 @@ for ni in nodes_interior:
 	for nj in neigh_nodes_to_node[ni]:
 		M[ni - 1, nj - 1] = prod(ni, nj)
 	M[ni - 1, ni - 1] = prod(ni, ni)
-for ntag in nodes_on_outer_surf:
-	M[ntag - 1, ntag - 1] = 1
-
-b = np.zeros(num_of_nodes)
-for i in range(num_of_nodes):
-	if i + 1 in nodes_on_outer_surf:
-		b[i] = 1
+for ni in nodes_on_outer_surf:
+	for nj in neigh_nodes_to_node[ni]:
+		r = np.linalg.norm(coords_of_node[:, nj])
+		M[ni - 1, nj - 1] = r*prod(ni, nj)
+	r = np.linalg.norm(coords_of_node[:, ni])
+	M[ni - 1, ni - 1] = r*prod(ni, ni)
 
 print('Solving linear system...')
 def solve_for_spot(theta):
 	x = R*np.cos(theta)
 	N = M.copy()
+	b = np.zeros(num_of_nodes)
 	for ni in nodes_on_inner_surf:
 		if coords_of_node[0, ni] < x:
 			for nj in neigh_nodes_to_node[ni]:
@@ -105,8 +105,9 @@ def solve_for_spot(theta):
 			N[ni - 1, ni - 1] = prod(ni, ni)
 		else:
 			N[ni - 1, ni - 1] = 1
-	N_ = spr.csr_matrix(N)
-	sol, info = sprlg.bicg(N_, b, x0=np.ones(num_of_nodes))
+			b[ni - 1] = 1
+	N = spr.csr_matrix(N)
+	sol, info = sprlg.bicg(N, b, x0=np.ones(num_of_nodes))
 	if info != 0:
 		print('Solving error: ', info)
 	return np.array(sol)
