@@ -3,11 +3,18 @@ import sys
 import gmsh
 from params import *
 
+model_num = int(sys.argv[1])
 gmsh.initialize(sys.argv)
-gmsh.model.add(model_name)
+gmsh.model.add(model_names[model_num])
 cad = gmsh.model.occ
 
-cad.addSphere(0, 0, 0, R, 1)
+if model_num == 0:
+	cad.addSphere(0, 0, 0, R, 1)
+else:
+	cad.addSphere(0, 0, 0, 1, 1)
+	cad.rotate(cad.getEntities(), 0, 0, 0, 0, 1, 0, np.pi/2)
+	cad.dilate(cad.getEntities(), 0, 0, 0, A, B, B)
+
 cad.addSphere(0, 0, 0, L, 2)
 cad.cut([(3, 2)], [(3, 1)], 3, removeObject=False, removeTool=False)
 cad.remove([(3, 2), (3, 1)])
@@ -19,12 +26,17 @@ gmsh.model.addPhysicalGroup(2, [2], name='outer surface')
 
 
 gmsh.option.setNumber('Mesh.SecondOrderLinear', 1)
-gmsh.model.mesh.setSizeCallback(lambda dim, tag, x, y, z, lc: np.clip(mesh_micro_size*(x**2 + y**2 + z**2), 0, mesh_macro_size))
+
+if model_num == 0:
+	gmsh.model.mesh.setSizeCallback(lambda dim, tag, x, y, z, lc: np.clip(mesh_micro_size*(x**2 + y**2 + z**2)/R**2, 0, mesh_macro_size))
+else:
+	gmsh.model.mesh.setSizeCallback(lambda dim, tag, x, y, z, lc: np.clip(mesh_micro_size*((B/A)**2*x**2/A**2 + y**2/B**2 + z**2/B**2), 0, mesh_macro_size))
+
 gmsh.model.mesh.generate(3)
 gmsh.model.mesh.removeDuplicateNodes()
 gmsh.model.mesh.renumberNodes()
 gmsh.model.mesh.renumberElements()
 gmsh.model.mesh.setOrder(element_order)
-gmsh.write(model_name + '.msh')
+gmsh.write(model_names[model_num] + '.msh')
 gmsh.fltk.run()
 gmsh.finalize()

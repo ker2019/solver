@@ -4,9 +4,10 @@ import numpy as np
 
 from params import *
 
+model_num = int(sys.argv[1])
 gmsh.initialize(sys.argv)
 
-gmsh.open(model_name + '-solution.msh')
+gmsh.open(model_names[model_num] + '-solution.msh')
 # Solution
 solution = max(gmsh.view.getTags())
 
@@ -19,10 +20,11 @@ gmsh.plugin.run('CutPlane')
 plane_cut = max(gmsh.view.getTags())
 
 # Cut with sphere
-gmsh.plugin.setNumber('CutSphere', 'R', 1.1*R)
-gmsh.plugin.setNumber('CutSphere', 'View', 0)
-gmsh.plugin.run('CutSphere')
-sphere_cut = max(gmsh.view.getTags())
+if model_num == 0:
+	gmsh.plugin.setNumber('CutSphere', 'R', 1.1*R)
+	gmsh.plugin.setNumber('CutSphere', 'View', 0)
+	gmsh.plugin.run('CutSphere')
+	sphere_cut = max(gmsh.view.getTags())
 
 """
 # Error

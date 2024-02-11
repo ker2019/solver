@@ -6,11 +6,12 @@ import scipy.sparse.linalg as sprlg
 
 from params import *
 
+model_num = int(sys.argv[1])
 mesh = gmsh.model.mesh
 Nx = np.newaxis
 
 gmsh.initialize(sys.argv)
-gmsh.open(model_name + '.msh')
+gmsh.open(model_names[model_num] + '.msh')
 element_type = mesh.getElementType(element_name, element_order)
 element2D_type = mesh.getElementType(element2D_name, element_order)
 _, _, _, nodes_per_elem, local_coords_of_nodes, _ = mesh.getElementProperties(element_type)
@@ -21,7 +22,7 @@ _, grads, _ = mesh.getBasisFunctions(element_type, local_coords, 'GradLagrange' 
 grads = np.reshape(grads, (len(weights), nodes_per_elem, 3))
 grads_by_grads = (weights[:, Nx, Nx, Nx, Nx] * (grads[:, :, Nx, :, Nx] * grads[:, Nx, :, Nx, :])).sum(axis=0)
 
-print('Extracting necessary data from mesh...')
+print('Extracting necessary data from mesh...', flush=True)
 _, domain = gmsh.model.getEntitiesForPhysicalName('domain')[0]
 _, inner_surf = gmsh.model.getEntitiesForPhysicalName('inner surface')[0]
 _, outer_surf = gmsh.model.getEntitiesForPhysicalName('outer surface')[0]
@@ -80,7 +81,7 @@ def prod(n1tag, n2tag):
 			res += D * (J[:, Nx, :] * J[Nx, :, :] * grads_by_grads[n1, n1, :, :, Nx]).sum()
 	return res
 
-print('Evaluating linear system coefficients...')
+print('Evaluating linear system coefficients...', flush=True)
 M = spr.lil_matrix((num_of_nodes, num_of_nodes))
 for ni in nodes_interior:
 	for nj in neigh_nodes_to_node[ni]:
@@ -93,13 +94,16 @@ for ni in nodes_on_outer_surf:
 	r = np.linalg.norm(coords_of_node[:, ni])
 	M[ni - 1, ni - 1] = r*prod(ni, ni)
 
-print('Solving linear system...')
+print('Solving linear system...', flush=True)
 def solve_for_spot(theta):
-	x = R*np.cos(theta)
+	if model_num == 0:
+		x = R*np.cos(theta)
+	elif model_num == 1:
+		x = A*np.cos(theta)
 	N = M.copy()
 	b = np.zeros(num_of_nodes)
 	for ni in nodes_on_inner_surf:
-		if coords_of_node[0, ni] < x:
+		if coords_of_node[0, ni] <= x:
 			for nj in neigh_nodes_to_node[ni]:
 				N[ni - 1, nj - 1] = prod(ni, nj)
 			N[ni - 1, ni - 1] = prod(ni, ni)
@@ -130,15 +134,15 @@ def evaluate_flux(vtag, step):
 
 
 v1 = gmsh.view.add('solution')
-n = 30
+n = steps_num
 theta = np.linspace(0, np.pi, n)
 F = np.empty(n)
 for i in range(n):
-	print('%i/%i' % (i, n))
+	print('%i/%i' % (i, n), flush=True)
 	sol = solve_for_spot(theta[i])
-	gmsh.view.addHomogeneousModelData(v1, i, model_name, 'NodeData', range(1, num_of_nodes + 1), sol)
+	gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=theta[i])
 	F[i] = evaluate_flux(v1, i)
-np.savez('fluxes.npz', theta=theta, F=F)
+np.savez(model_names[model_num] + '-fluxes.npz', theta=theta, F=F)
 
-gmsh.view.write(v1, model_name + '-solution.msh')
+gmsh.view.write(v1, model_names[model_num] + '-solution.msh')
 gmsh.finalize()
