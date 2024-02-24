@@ -134,15 +134,20 @@ def evaluate_flux(vtag, step):
 
 
 v1 = gmsh.view.add('solution')
-n = steps_num
-theta = np.linspace(0, np.pi, n)
-F = np.empty(n)
-for i in range(n):
-	print('%i/%i' % (i, n), flush=True)
+theta = np.linspace(0, np.pi, steps_num)
+F = np.empty(steps_num)
+if model_num == 0:
+	spot_area = 2*np.pi*R**2 * (1 - np.cos(theta))
+elif model_num == 1:
+	ct = np.cos(theta)
+	spot_area = np.pi * C * B * (A**2/C**2 * (np.arccos(ct*C/A) - np.arccos(C/A)) + B/C - ct * np.sqrt(A**2/C**2 - ct**2))
+for i in range(steps_num):
+	print('%i/%i' % (i, steps_num), flush=True, end=' ')
 	sol = solve_for_spot(theta[i])
-	gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=theta[i])
+	gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=spot_area[i])
 	F[i] = evaluate_flux(v1, i)
-np.savez(model_names[model_num] + '-fluxes.npz', theta=theta, F=F)
+print()
+np.savez(model_names[model_num] + '-fluxes.npz', theta=theta, spot_area=spot_area, F=F)
 
 gmsh.view.write(v1, model_names[model_num] + '-solution.msh')
 gmsh.finalize()

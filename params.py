@@ -2,6 +2,7 @@ model_names = ['sphere_with_spot', 'ellipsoid_with_spot_on_pole', 'ellipsoid_wit
 R = 1
 A = 1
 B = 0.5
+C = (A**2 - B**2)**0.5
 L = 4
 mesh_micro_size = 0.1
 mesh_macro_size = 2
