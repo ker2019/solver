@@ -134,7 +134,7 @@ def evaluate_flux(vtag, step):
 
 
 v1 = gmsh.view.add('solution')
-theta = np.linspace(0, np.pi, steps_num)
+theta = np.linspace(0, np.sqrt(np.pi), steps_num)**2
 F = np.empty(steps_num)
 if model_num == 0:
 	spot_area = 2*np.pi*R**2 * (1 - np.cos(theta))
@@ -146,7 +146,7 @@ for i in range(steps_num):
 	sol = solve_for_spot(theta[i])
 	gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=spot_area[i])
 	F[i] = evaluate_flux(v1, i)
-print()
+print('', flush=True)
 np.savez(model_names[model_num] + '-fluxes.npz', theta=theta, spot_area=spot_area, F=F)
 
 gmsh.view.write(v1, model_names[model_num] + '-solution.msh')

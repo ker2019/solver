@@ -10,6 +10,7 @@ cad = gmsh.model.occ
 
 if model_num == 0:
 	cad.addSphere(0, 0, 0, R, 1)
+	cad.rotate(cad.getEntities(), 0, 0, 0, 0, 1, 0, np.pi/2)
 else:
 	cad.addSphere(0, 0, 0, 1, 1)
 	cad.rotate(cad.getEntities(), 0, 0, 0, 0, 1, 0, np.pi/2)
@@ -27,10 +28,9 @@ gmsh.model.addPhysicalGroup(2, [2], name='outer surface')
 
 gmsh.option.setNumber('Mesh.SecondOrderLinear', 1)
 
-if model_num == 0:
-	gmsh.model.mesh.setSizeCallback(lambda dim, tag, x, y, z, lc: np.clip(mesh_micro_size*(x**2 + y**2 + z**2)/R**2, 0, mesh_macro_size))
-else:
-	gmsh.model.mesh.setSizeCallback(lambda dim, tag, x, y, z, lc: np.clip(mesh_micro_size*((B/A)**2*x**2/A**2 + y**2/B**2 + z**2/B**2), 0, mesh_macro_size))
+gmsh.model.mesh.setSize([(0, 1)], mesh_micro_size)
+gmsh.model.mesh.setSize([(0, 2)], mesh_middle_size)
+gmsh.model.mesh.setSize([(0, 3), (0, 4)], mesh_macro_size)
 
 gmsh.model.mesh.generate(3)
 gmsh.model.mesh.removeDuplicateNodes()
