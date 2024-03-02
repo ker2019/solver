@@ -17,7 +17,7 @@ ax = fig.add_subplot(1, 1, 1)
 if model_num == 0:
 	f = 4*np.pi*R
 	full_area = 4*np.pi*R**2
-elif model_num == 1:
+elif model_num == 1 or model_num == 2:
 	f = 8*np.pi*C/np.log((A + C)/(A - C))
 	full_area = np.pi * C * B * (A**2/C**2 * (np.pi - 2*np.arccos(C/A)) + 2*B/C)
 

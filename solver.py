@@ -95,15 +95,19 @@ for ni in nodes_on_outer_surf:
 	M[ni - 1, ni - 1] = r*prod(ni, ni)
 
 print('Solving linear system...', flush=True)
-def solve_for_spot(theta):
+def is_in_cluster(coords, theta):
 	if model_num == 0:
-		x = R*np.cos(theta)
+		return coords[0] > R*np.cos(theta)
 	elif model_num == 1:
-		x = A*np.cos(theta)
+		return coords[0] > A*np.cos(theta)
+	elif model_num == 2:
+		return coords[1] > B*np.cos(theta)
+
+def solve(theta):
 	N = M.copy()
 	b = np.zeros(num_of_nodes)
 	for ni in nodes_on_inner_surf:
-		if coords_of_node[0, ni] <= x:
+		if not is_in_cluster(coords_of_node[:, ni], theta):
 			for nj in neigh_nodes_to_node[ni]:
 				N[ni - 1, nj - 1] = prod(ni, nj)
 			N[ni - 1, ni - 1] = prod(ni, ni)
@@ -132,6 +136,17 @@ def evaluate_flux(vtag, step):
 			flux += weights2D[i] * np.dot(g, J[e, i] @ [0, 0, 1]) * D[e, i]
 	return flux
 
+_, D1, p1 = mesh.getJacobians(element2D_type, [0, 0, 0, 1, 0, 0, 0, 1, 0], inner_surf)
+elems_num = len(D1)//3
+D1 = np.reshape(D1, (elems_num, 3))
+p1 = np.reshape(p1, (elems_num, 3, 3))
+def evaluate_area(theta):
+	S = 0
+	centers = p1.mean(axis=1)
+	for e in range(elems_num):
+		if is_in_cluster(centers[e, :], theta):
+			S += D1[e, 0]/2 # Only for triangle elements
+	return S
 
 v1 = gmsh.view.add('solution')
 theta = np.linspace(0, np.sqrt(np.pi), steps_num)**2
@@ -141,9 +156,12 @@ if model_num == 0:
 elif model_num == 1:
 	ct = np.cos(theta)
 	spot_area = np.pi * C * B * (A**2/C**2 * (np.arccos(ct*C/A) - np.arccos(C/A)) + B/C - ct * np.sqrt(A**2/C**2 - ct**2))
+elif model_num == 2:
+	spot_area = np.array(list(map(evaluate_area, theta)))
+
 for i in range(steps_num):
 	print('%i/%i' % (i, steps_num), flush=True, end=' ')
-	sol = solve_for_spot(theta[i])
+	sol = solve(theta[i])
 	gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=spot_area[i])
 	F[i] = evaluate_flux(v1, i)
 print('', flush=True)
