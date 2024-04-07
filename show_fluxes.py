@@ -19,7 +19,7 @@ for i in range(len(model_nums)):
 
 if len(model_nums) == 1:
 	model_num = model_nums[0]
-	if model_num == 0:
+	if model_num == 0 or model_num == 3:
 		full_flux = 4*np.pi*R
 		full_area = 4*np.pi*R**2
 	elif model_num == 1 or model_num == 2:
@@ -28,7 +28,11 @@ if len(model_nums) == 1:
 
 	a = np.sqrt(spot_area[0]/np.pi)
 	ax.plot(a, -F[0], 'bo ', markersize=3, label='Numerical', zorder=2)
-	ax.plot(a, 4*a, 'r--', label='Analytical for small spot', zorder=1, linewidth=1)
+	if model_num in [0, 1, 2]:
+		ax.plot(a, 4*a, 'r--', label='Analytical for small spot', zorder=1, linewidth=1)
+	elif model_num == 3:
+		N = a**2/s**2
+		ax.plot(a, full_flux*N*s/(N*s + np.pi*R), 'r--', label='Approximate for small spots', zorder=1, linewidth=1)
 	ax.scatter([np.sqrt(full_area/np.pi)], [full_flux], marker='+', c='magenta', label='Analytical for full sphere', zorder=3)
 	ax.set_title(model_names[model_num])
 else:

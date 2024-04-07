@@ -20,7 +20,7 @@ gmsh.plugin.run('CutPlane')
 plane_cut = max(gmsh.view.getTags())
 
 # Cut with sphere
-if model_num == 0:
+if model_num == 0 or model_num == 3:
 	gmsh.plugin.setNumber('CutSphere', 'R', 1.1*R)
 	gmsh.plugin.setNumber('CutSphere', 'View', 0)
 	gmsh.plugin.run('CutSphere')

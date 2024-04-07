@@ -95,19 +95,35 @@ for ni in nodes_on_outer_surf:
 	M[ni - 1, ni - 1] = r*prod(ni, ni)
 
 print('Solving linear system...', flush=True)
-def is_in_cluster(coords, theta):
-	if model_num == 0:
-		return coords[0] > R*np.cos(theta)
-	elif model_num == 1:
-		return coords[0] > A*np.cos(theta)
-	elif model_num == 2:
-		return coords[1] > B*np.cos(theta)
+generator = np.random.default_rng()
+def gen_spots(num_of_spots):
+	th = np.linspace(0, np.pi, 3000)
+	prob = np.sin(th)*np.pi/6000
+	prob[0] += 1 - prob.sum()
+	theta = generator.choice(th, num_of_spots, p=prob)
+	phi = 2*np.pi*generator.random(num_of_spots)
+	return np.array([R*np.sin(theta)*np.cos(phi), R*np.sin(theta)*np.sin(phi), R*np.cos(theta)]).transpose()
 
-def solve(theta):
+def is_in_cluster(coords, **kwargs):
+	if model_num == 0:
+		return coords[0] > R*np.cos(kwargs['theta'])
+	elif model_num == 1:
+		return coords[0] > A*np.cos(kwargs['theta'])
+	elif model_num == 2:
+		return coords[1] > B*np.cos(kwargs['theta'])
+	elif model_num == 3:
+		spots = kwargs['spots']
+		for i in range(spots.shape[0]):
+			if ((spots[i, :] - coords)**2).sum() < s**2:
+				return True
+		return False
+
+
+def solve(**kwargs):
 	N = M.copy()
 	b = np.zeros(num_of_nodes)
 	for ni in nodes_on_inner_surf:
-		if not is_in_cluster(coords_of_node[:, ni], theta):
+		if not is_in_cluster(coords_of_node[:, ni], **kwargs):
 			for nj in neigh_nodes_to_node[ni]:
 				N[ni - 1, nj - 1] = prod(ni, nj)
 			N[ni - 1, ni - 1] = prod(ni, ni)
@@ -140,32 +156,45 @@ _, D1, p1 = mesh.getJacobians(element2D_type, [0, 0, 0, 1, 0, 0, 0, 1, 0], inner
 elems_num = len(D1)//3
 D1 = np.reshape(D1, (elems_num, 3))
 p1 = np.reshape(p1, (elems_num, 3, 3))
-def evaluate_area(theta):
+def evaluate_area(**kwargs):
 	S = 0
 	centers = p1.mean(axis=1)
 	for e in range(elems_num):
-		if is_in_cluster(centers[e, :], theta):
+		if is_in_cluster(centers[e, :], **kwargs):
 			S += D1[e, 0]/2 # Only for triangle elements
 	return S
 
 v1 = gmsh.view.add('solution')
-theta = np.linspace(0, np.sqrt(np.pi), steps_num)**2
-F = np.empty(steps_num)
-if model_num == 0:
-	spot_area = 2*np.pi*R**2 * (1 - np.cos(theta))
-elif model_num == 1:
-	ct = np.cos(theta)
-	spot_area = np.pi * C * B * (A**2/C**2 * (np.arccos(ct*C/A) - np.arccos(C/A)) + B/C - ct * np.sqrt(A**2/C**2 - ct**2))
-elif model_num == 2:
-	spot_area = np.array(list(map(evaluate_area, theta)))
 
-for i in range(steps_num):
-	print('%i/%i' % (i, steps_num), flush=True, end=' ')
-	sol = solve(theta[i])
-	gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=spot_area[i])
-	F[i] = evaluate_flux(v1, i)
-print('', flush=True)
-np.savez(model_names[model_num] + '-fluxes.npz', theta=theta, spot_area=spot_area, F=F)
+if model_num in [0, 1, 2]:
+	F = np.empty(steps_num)
+	theta = np.linspace(0, np.sqrt(np.pi), steps_num)**2
+	if model_num == 0:
+		spot_area = 2*np.pi*R**2 * (1 - np.cos(theta))
+	elif model_num == 1:
+		ct = np.cos(theta)
+		spot_area = np.pi * C * B * (A**2/C**2 * (np.arccos(ct*C/A) - np.arccos(C/A)) + B/C - ct * np.sqrt(A**2/C**2 - ct**2))
+	elif model_num == 2:
+		spot_area = np.array(list(map(evaluate_area, theta=theta)))
 
+	for i in range(steps_num):
+		print('%i/%i' % (i, steps_num), flush=True, end=' ')
+		sol = solve(theta[i])
+		gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=spot_area[i])
+		F[i] = evaluate_flux(v1, i)
+	print('', flush=True)
+elif model_num == 3:
+	num_of_spots = np.arange(0, 200, 10)
+	F = np.empty(len(num_of_spots))
+	spot_area = num_of_spots*np.pi*s**2
+	for i in range(len(num_of_spots)):
+		print('%i/%i' % (i, len(num_of_spots)), flush=True, end=' ')
+		spots = gen_spots(num_of_spots[i])
+		sol = solve(spots=spots)
+		gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=spot_area[i])
+		F[i] = evaluate_flux(v1, i)
+	print('', flush=True)
+
+np.savez(model_names[model_num] + '-fluxes.npz', spot_area=spot_area, F=F)
 gmsh.view.write(v1, model_names[model_num] + '-solution.msh')
 gmsh.finalize()
