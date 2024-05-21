@@ -1,4 +1,10 @@
-model_names = ['sphere_with_spot', 'ellipsoid_with_cluster_on_pole', 'ellipsoid_with_lateral_cluster', 'sphere_with_uniform_spots']
+model_names = ['sphere_with_spot',
+'ellipsoid_with_cluster_on_pole',
+'ellipsoid_with_lateral_cluster',
+'sphere_with_uniform_spots',
+'full_ellipsoid_polar',
+'full_ellipsoid_lateral']
+
 R = 1
 A = 1
 B = 0.5
@@ -11,4 +17,4 @@ mesh_macro_size = 2
 element_order = 2
 element_name = 'Tetrahedron'
 element2D_name = 'Triangle'
-steps_num = 20
+steps_num = 50

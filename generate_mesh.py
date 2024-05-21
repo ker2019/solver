@@ -11,7 +11,7 @@ cad = gmsh.model.occ
 if model_num == 0 or model_num == 3:
 	cad.addSphere(0, 0, 0, R, 1)
 	cad.rotate(cad.getEntities(), 0, 0, 0, 0, 1, 0, np.pi/2)
-elif model_num == 1 or model_num == 2:
+elif model_num in [1, 2, 4, 5]:
 	cad.addSphere(0, 0, 0, 1, 1)
 	cad.rotate(cad.getEntities(), 0, 0, 0, 0, 1, 0, np.pi/2)
 	cad.dilate(cad.getEntities(), 0, 0, 0, A, B, B)
@@ -20,11 +20,11 @@ cad.addSphere(0, 0, 0, L, 2)
 cad.cut([(3, 2)], [(3, 1)], 3, removeObject=False, removeTool=False)
 cad.remove([(3, 2), (3, 1)])
 
-if model_num == 2:
+if model_num == 2 or model_num == 5:
 	cad.addPoint(0, B, 0, 5)
 	cad.addPoint(0, -B, 0, 6)
-cad.synchronize()
 
+cad.synchronize()
 gmsh.model.addPhysicalGroup(3, [3], name='domain')
 gmsh.model.addPhysicalGroup(2, [1], name='inner surface')
 gmsh.model.addPhysicalGroup(2, [2], name='outer surface')
@@ -32,8 +32,8 @@ gmsh.model.addPhysicalGroup(2, [2], name='outer surface')
 
 gmsh.option.setNumber('Mesh.SecondOrderLinear', 1)
 
-if model_num == 2:
-	gmsh.model.mesh.embed(0, [5, 6], 2, 1)
+if model_num == 2 or model_num == 5:
+	#gmsh.model.mesh.embed(0, [5, 6], 2, 1) # It seems like gmsh duplicates the node when embeded #FIXME
 	gmsh.model.mesh.setSize([(0, 5)], mesh_micro_size)
 	gmsh.model.mesh.setSize([(0, 6)], mesh_middle_size/2)
 	gmsh.model.mesh.setSize([(0, 1)], mesh_middle_size/2)
@@ -44,10 +44,10 @@ else:
 gmsh.model.mesh.setSize([(0, 3), (0, 4)], mesh_macro_size)
 
 gmsh.model.mesh.generate(3)
+gmsh.model.mesh.setOrder(element_order)
 gmsh.model.mesh.removeDuplicateNodes()
 gmsh.model.mesh.renumberNodes()
 gmsh.model.mesh.renumberElements()
-gmsh.model.mesh.setOrder(element_order)
 gmsh.write(model_names[model_num] + '.msh')
 gmsh.fltk.run()
 gmsh.finalize()
