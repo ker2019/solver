@@ -13,7 +13,7 @@ if model_num != 0:
 
 gmsh.initialize(sys.argv)
 
-gmsh.open(model_names[model_num] + '-solution.msh')
+gmsh.open('data/' + model_names[model_num] + '-solution.msh')
 solution = max(gmsh.view.getTags())
 
 X = np.arange(R, L, 0.01)

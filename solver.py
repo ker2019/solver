@@ -13,7 +13,7 @@ model_num = int(sys.argv[1])
 Nx = np.newaxis
 
 print('Extracting necessary data from mesh...', flush=True)
-msh = Mesh(model_names[model_num], sys.argv)
+msh = Mesh('data/' + model_names[model_num], sys.argv)
 
 def eval_int_product_of_FEgradients(n1tag, n2tag):
 	res = 0
@@ -126,5 +126,5 @@ if model_num in [4, 5]:
 	for i in tqdm(range(theta.size)):
 		F[i] = evaluate_flux(v1, 0, theta=theta[i])
 
-np.savez(model_names[model_num] + '-fluxes.npz', spot_area=cluster_area, F=F)
-gmsh.view.write(v1, model_names[model_num] + '-solution.msh')
+np.savez('data/' + model_names[model_num] + '-fluxes.npz', spot_area=cluster_area, F=F)
+gmsh.view.write(v1, 'data/' + model_names[model_num] + '-solution.msh')

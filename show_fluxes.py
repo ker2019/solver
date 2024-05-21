@@ -13,7 +13,7 @@ model_nums = list(map(int, sys.argv[1].split(',')))
 F = list()
 spot_area = list()
 for i in range(len(model_nums)):
-	with np.load(model_names[model_nums[i]] + '-fluxes.npz', allow_pickle=True) as data:
+	with np.load('data/' + model_names[model_nums[i]] + '-fluxes.npz', allow_pickle=True) as data:
 		F.append(data['F'])
 		spot_area.append(data['spot_area'])
 

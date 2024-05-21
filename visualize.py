@@ -7,7 +7,7 @@ from params import *
 model_num = int(sys.argv[1])
 gmsh.initialize(sys.argv)
 
-gmsh.open(model_names[model_num] + '-solution.msh')
+gmsh.open('data/' + model_names[model_num] + '-solution.msh')
 # Solution
 solution = max(gmsh.view.getTags())
 
