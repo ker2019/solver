@@ -7,7 +7,7 @@ import gmsh
 from params import *
 
 model_num = int(sys.argv[1])
-if model_num != 0:
+if model_num != 0 and model_num != 4:
 	print('ERROR: Implemented only for sphere')
 	sys.exit()
 
@@ -22,16 +22,26 @@ mpl.rc('mathtext', fontset='cm')
 mpl.rc('axes', labelpad=10)
 fig = plt.figure()
 
-u = np.array([gmsh.view.probe(solution, x, 0, 0, step=steps_num - 1, distanceMax=-1, gradient=False)[0] for x in X])
+if model_num == 4:
+	step = int(sys.argv[2])
+	with np.load(model_names[model_num] + '-fluxes.npz', allow_pickle=True) as data:
+		alpha = data['alpha']
+	alpha = alpha[step]
+elif model_num == 0:
+	with np.load(model_names[model_num] + '-fluxes.npz', allow_pickle=True) as data:
+		 step = data['F'].size - 1
+	alpha = 0
+
+u = np.array([gmsh.view.probe(solution, -x, 0, 0, step=step, distanceMax=-1, gradient=False)[0] for x in X])
 ax1 = fig.add_subplot(2, 1, 1)
 ax1.plot(X, u, label='Numerical solution')
-ax1.plot(X, R/X, label='Analytical solution')
+ax1.plot(X, (1 + alpha*R**2/X)*R/X * np.exp(alpha*R - 2*alpha*X), label='Analytical solution')
 ax1.legend()
 
-dudx = np.array([gmsh.view.probe(solution, x, 0, 0, step=steps_num - 1, distanceMax=-1, gradient=True)[0][0] for x in X])
+dudx = np.array([gmsh.view.probe(solution, -x, 0, 0, step=step, distanceMax=-1, gradient=True)[0][0] for x in X])
 ax2 = fig.add_subplot(2, 1, 2)
-ax2.plot(X, dudx, label='Numerical solution')
-ax2.plot(X, -R/X**2, label='Analytical solution')
+ax2.plot(X, -dudx, label='Numerical solution')
+ax2.plot(X, -(R/X**2 + 2*alpha*R**3/X**3 + 2*alpha*R/X + 2*alpha**2*R**3/X**2)*np.exp(alpha*R - 2*alpha*X), label='Analytical solution')
 ax2.legend()
 
 ax2.set_xlabel('$x$', fontsize=15, labelpad=0)

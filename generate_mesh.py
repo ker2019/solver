@@ -8,7 +8,7 @@ gmsh.initialize(sys.argv)
 gmsh.model.add(model_names[model_num])
 cad = gmsh.model.occ
 
-if model_num == 0 or model_num == 3:
+if model_num == 0 or model_num == 3 or model_num == 4:
 	cad.addSphere(0, 0, 0, R, 1)
 	cad.rotate(cad.getEntities(), 0, 0, 0, 0, 1, 0, np.pi/2)
 elif model_num == 1 or model_num == 2:

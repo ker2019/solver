@@ -1,4 +1,4 @@
-model_names = ['sphere_with_spot', 'ellipsoid_with_cluster_on_pole', 'ellipsoid_with_lateral_cluster', 'sphere_with_uniform_spots']
+model_names = ['sphere_with_spot', 'ellipsoid_with_cluster_on_pole', 'ellipsoid_with_lateral_cluster', 'sphere_with_uniform_spots', 'moving_sphere']
 R = 1
 A = 1
 B = 0.5

@@ -20,7 +20,10 @@ _, _, _, nodes_per_elem2D, _, _ = mesh.getElementProperties(element2D_type)
 local_coords, weights = mesh.getIntegrationPoints(element_type, 'Gauss' + str(2*element_order - 2))
 _, grads, _ = mesh.getBasisFunctions(element_type, local_coords, 'GradLagrange' + str(element_order))
 grads = np.reshape(grads, (len(weights), nodes_per_elem, 3))
+_, values, _ = mesh.getBasisFunctions(element_type, local_coords, 'Lagrange' + str(element_order))
+values = np.reshape(values, (len(weights), nodes_per_elem))
 grads_by_grads = (weights[:, Nx, Nx, Nx, Nx] * (grads[:, :, Nx, :, Nx] * grads[:, Nx, :, Nx, :])).sum(axis=0)
+grads_by_values = (weights[:, Nx, Nx, Nx] * grads[:, :, Nx, :] * values[:, Nx, :, Nx]).sum(axis=0)
 
 print('Extracting necessary data from mesh...', flush=True)
 _, domain = gmsh.model.getEntitiesForPhysicalName('domain')[0]
@@ -64,7 +67,7 @@ for ntag in range(1, num_of_nodes + 1):
 		neigh_nodes_to_node[ntag] = neigh_nodes_to_node[ntag].union(set(nodes_of_elem[etag - min_elem_tag, :]))
 	neigh_nodes_to_node[ntag].discard(ntag)
 
-def prod(n1tag, n2tag):
+def prod(n1tag, n2tag, alpha):
 	res = 0
 	if n1tag != n2tag:
 		for etag in elems_adj_to_node[n1tag].intersection(elems_adj_to_node[n2tag]):
@@ -73,26 +76,17 @@ def prod(n1tag, n2tag):
 			J = inv_jacobian_of_elem[etag - min_elem_tag, :, :]
 			D = determinant_of_elem[etag - min_elem_tag]
 			res += D * (J[:, Nx, :] * J[Nx, :, :] * grads_by_grads[n1, n2, :, :, Nx]).sum()
+			res += -2*alpha*D * (J[:, 0] * grads_by_values[n1, n2, :]).sum()
 	else:
 		for etag in elems_adj_to_node[n1tag]:
 			n1 = list(nodes_of_elem[etag - min_elem_tag, :]).index(n1tag)
 			J = inv_jacobian_of_elem[etag - min_elem_tag, :, :]
 			D = determinant_of_elem[etag - min_elem_tag]
 			res += D * (J[:, Nx, :] * J[Nx, :, :] * grads_by_grads[n1, n1, :, :, Nx]).sum()
+			res += -2*alpha*D * (J[:, 0] * grads_by_values[n1, n1, :]).sum()
 	return res
 
 print('Evaluating linear system coefficients...', flush=True)
-M = spr.lil_matrix((num_of_nodes, num_of_nodes))
-for ni in nodes_interior:
-	for nj in neigh_nodes_to_node[ni]:
-		M[ni - 1, nj - 1] = prod(ni, nj)
-	M[ni - 1, ni - 1] = prod(ni, ni)
-for ni in nodes_on_outer_surf:
-	for nj in neigh_nodes_to_node[ni]:
-		r = np.linalg.norm(coords_of_node[:, nj])
-		M[ni - 1, nj - 1] = r*prod(ni, nj)
-	r = np.linalg.norm(coords_of_node[:, ni])
-	M[ni - 1, ni - 1] = r*prod(ni, ni)
 
 print('Solving linear system...', flush=True)
 generator = np.random.default_rng()
@@ -117,19 +111,34 @@ def is_in_cluster(coords, **kwargs):
 			if ((spots[i, :] - coords)**2).sum() < s**2:
 				return True
 		return False
+	elif model_num == 4:
+		return True
 
 
 def solve(**kwargs):
-	N = M.copy()
+	N = spr.lil_matrix((num_of_nodes, num_of_nodes))
 	b = np.zeros(num_of_nodes)
+	alpha = kwargs['alpha'] if 'alpha' in kwargs else 0
+	for ni in nodes_interior:
+		for nj in neigh_nodes_to_node[ni]:
+			N[ni - 1, nj - 1] = prod(ni, nj, alpha)
+		N[ni - 1, ni - 1] = prod(ni, ni, alpha)
 	for ni in nodes_on_inner_surf:
 		if not is_in_cluster(coords_of_node[:, ni], **kwargs):
 			for nj in neigh_nodes_to_node[ni]:
-				N[ni - 1, nj - 1] = prod(ni, nj)
-			N[ni - 1, ni - 1] = prod(ni, ni)
+				N[ni - 1, nj - 1] = prod(ni, nj, alpha)
+			N[ni - 1, ni - 1] = prod(ni, ni, alpha)
 		else:
 			N[ni - 1, ni - 1] = 1
 			b[ni - 1] = 1
+	for ni in nodes_on_outer_surf:
+		for nj in neigh_nodes_to_node[ni]:
+			r = np.linalg.norm(coords_of_node[:, nj])
+			x = coords_of_node[0, nj]
+			N[ni - 1, nj - 1] = r*np.exp(alpha*(r + x))*prod(ni, nj, alpha)
+		r = np.linalg.norm(coords_of_node[:, ni])
+		x = coords_of_node[0, ni]
+		N[ni - 1, ni - 1] = r*np.exp(alpha*(r + x))*prod(ni, ni, alpha)
 	N = spr.csr_matrix(N)
 	sol, info = sprlg.bicg(N, b, x0=np.ones(num_of_nodes))
 	if info != 0:
@@ -179,7 +188,7 @@ if model_num in [0, 1, 2]:
 
 	for i in range(steps_num):
 		print('%i/%i' % (i, steps_num), flush=True, end=' ')
-		sol = solve(theta[i])
+		sol = solve(theta=theta[i])
 		gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=spot_area[i])
 		F[i] = evaluate_flux(v1, i)
 	print('', flush=True)
@@ -194,7 +203,20 @@ elif model_num == 3:
 		gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=spot_area[i])
 		F[i] = evaluate_flux(v1, i)
 	print('', flush=True)
+elif model_num == 4:
+	steps = 100
+	F = np.empty(steps)
+	Alpha = np.linspace(0, 1.0, steps)
+	for i in range(steps):
+		print('%i/%i' % (i, steps), flush=True, end=' ')
+		sol = solve(alpha=Alpha[i])
+		gmsh.view.addHomogeneousModelData(v1, i, model_names[model_num], 'NodeData', range(1, num_of_nodes + 1), sol, time=Alpha[i])
+		F[i] = evaluate_flux(v1, i)
+	print('', flush=True)
 
-np.savez(model_names[model_num] + '-fluxes.npz', spot_area=spot_area, F=F)
+if model_num == 4:
+	np.savez(model_names[model_num] + '-fluxes.npz', alpha=Alpha, F=F)
+else:
+	np.savez(model_names[model_num] + '-fluxes.npz', spot_area=spot_area, F=F)
 gmsh.view.write(v1, model_names[model_num] + '-solution.msh')
 gmsh.finalize()
