@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+from pathlib import Path
 import gmsh
 from params import *
 
@@ -41,13 +42,14 @@ if model_num == 2 or model_num == 5:
 else:
 	gmsh.model.mesh.setSize([(0, 1)], mesh_micro_size)
 	gmsh.model.mesh.setSize([(0, 2)], mesh_middle_size)
-gmsh.model.mesh.setSize([(0, 3), (0, 4)], mesh_macro_size)
+gmsh.model.mesh.setSize([(0, 3), (0, 4)], mesh_macro_size)  # mesh size at the outer envelope
 
 gmsh.model.mesh.generate(3)
 gmsh.model.mesh.setOrder(element_order)
 gmsh.model.mesh.removeDuplicateNodes()
 gmsh.model.mesh.renumberNodes()
 gmsh.model.mesh.renumberElements()
+Path('./data').mkdir(exist_ok=True)
 gmsh.write('data/' + model_names[model_num] + '.msh')
 gmsh.fltk.run()
 gmsh.finalize()
